@@ -1,6 +1,7 @@
 const express = require("express");
 const http = require("http");
 const socketIo = require("socket.io");
+const path = require("path");
 
 const app = express();
 const server = http.createServer(app);
@@ -10,6 +11,9 @@ const io = socketIo(server, {
     methods: ["GET", "POST"],
   },
 });
+
+// `public` klasörünü statik olarak serve edin
+app.use(express.static(path.join(__dirname, "public")));
 
 // Her ürün için kullanıcı sayısını tutmak için bir obje
 const productViewers = {};

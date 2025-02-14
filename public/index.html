@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Canlı Ürün İzleyici</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        padding: 20px;
+      }
+      input,
+      button {
+        margin: 10px 0;
+        padding: 10px;
+        font-size: 16px;
+      }
+      #viewerCount {
+        font-size: 24px;
+        font-weight: bold;
+        margin-top: 20px;
+      }
+      .product-box {
+        padding: 10px;
+        border: 1px solid #ccc;
+        margin: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Canlı Ürün İzleyici</h1>
+    <label for="productId">Ürün ID'si:</label>
+    <input type="text" id="productId" placeholder="Ürün ID girin" />
+    <button onclick="joinProduct()">Ürüne Katıl</button>
+
+    <h2>Seçili Ürün İzleyici Sayısı:</h2>
+    <div id="viewerCount">Henüz bir ürün seçilmedi</div>
+
+    <h2>Tüm Ürünlerin İzleyici Sayısı:</h2>
+    <div id="allViewers"></div>
+
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <script>
+      const socket = io();
+      let currentProductId = null;
+
+      function joinProduct() {
+        const productId = document.getElementById("productId").value;
+        if (!productId) {
+          alert("Lütfen bir ürün ID’si girin");
+          return;
+        }
+        currentProductId = productId;
+        socket.emit("joinProduct", productId);
+      }
+
+      // Canlı izleyici sayısını güncelle
+      socket.on("viewerCount", (count) => {
+        document.getElementById(
+          "viewerCount"
+        ).innerText = `Bu ürün: ${count} izleyici`;
+      });
+
+      // Tüm ürünlerin canlı izleyici sayısını her saniye yenile
+      async function fetchLiveViewers() {
+        try {
+          const response = await fetch("/api/live-viewers");
+          const data = await response.json();
+          const container = document.getElementById("allViewers");
+          container.innerHTML = "";
+          for (const [productId, count] of Object.entries(data)) {
+            container.innerHTML += `<div class="product-box">Ürün ${productId}: ${count} izleyici</div>`;
+          }
+        } catch (error) {
+          console.error("İzleyici sayıları alınamadı:", error);
+        }
+      }
+
+      setInterval(fetchLiveViewers, 1000);
+    </script>
+  </body>
+</html>
