@@ -15,26 +15,33 @@ const io = socketIo(server, {
 // `public` klasörünü statik olarak serve edin
 app.use(express.static(path.join(__dirname, "public")));
 
-// Her ürün için kullanıcı sayısını tutmak için bir obje
+// Her ürün için izleyici listesini tutmak için bir obje
 const productViewers = {};
 
 // İzleyici sayısını canlı olarak görmek için endpoint
 app.get("/api/live-viewers", (req, res) => {
-  res.json(productViewers);
+  const counts = Object.fromEntries(
+    Object.entries(productViewers).map(([productId, viewers]) => [
+      productId,
+      viewers.size,
+    ])
+  );
+  res.json(counts);
 });
 
 io.on("connection", (socket) => {
   let currentProductId = null;
 
+  const sendViewerCount = (productId, excludeSocketId) => {
+    const viewers = Array.from(productViewers[productId] || []);
+    const filteredViewers = viewers.filter((id) => id !== excludeSocketId);
+    io.to(socket.id).emit("viewerCount", filteredViewers.length);
+  };
+
   socket.on("joinProduct", (productId) => {
-    if (currentProductId) {
-      if (productViewers[currentProductId]) {
-        productViewers[currentProductId] -= 1;
-        io.to(currentProductId).emit(
-          "viewerCount",
-          productViewers[currentProductId]
-        );
-      }
+    if (currentProductId && productViewers[currentProductId]) {
+      productViewers[currentProductId].delete(socket.id);
+      sendViewerCount(currentProductId, socket.id);
       socket.leave(currentProductId);
     }
 
@@ -42,20 +49,17 @@ io.on("connection", (socket) => {
     socket.join(productId);
 
     if (!productViewers[productId]) {
-      productViewers[productId] = 0;
+      productViewers[productId] = new Set();
     }
-    productViewers[productId] += 1;
+    productViewers[productId].add(socket.id);
 
-    io.to(productId).emit("viewerCount", productViewers[productId]);
+    sendViewerCount(productId, socket.id);
   });
 
   socket.on("disconnect", () => {
     if (currentProductId && productViewers[currentProductId]) {
-      productViewers[currentProductId] -= 1;
-      io.to(currentProductId).emit(
-        "viewerCount",
-        productViewers[currentProductId]
-      );
+      productViewers[currentProductId].delete(socket.id);
+      sendViewerCount(currentProductId, socket.id);
     }
   });
 });
